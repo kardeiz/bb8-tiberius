@@ -1,0 +1,15 @@
+[package]
+name = "bb8-tiberius"
+version = "0.1.0"
+authors = ["Jacob Brown <kardeiz@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+futures = "0.1.28"
+tiberius = { version = "0.3", default-features=false, features=["chrono"] }
+bb8 = "0.3.0"
+derive_more = "0.15.0"
+futures-state-stream = "0.1"
+
+[dev-dependencies]
+tokio = "0.1.22"
