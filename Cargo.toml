@@ -6,10 +6,17 @@ edition = "2018"
 
 [dependencies]
 futures = "0.1.28"
-tiberius = { version = "0.3", default-features=false, features=["chrono"] }
+tiberius = { version = "0.3", default-features = false }
 bb8 = "0.3.0"
 derive_more = "0.15.0"
 futures-state-stream = "0.1"
 
 [dev-dependencies]
 tokio = "0.1.22"
+
+[features]
+default = ["chrono", "tls", "tiberius/chrono", "tiberius/tls"]
+tls = ["tokio-tls", "native-tls", "tiberius/tls"]
+chrono = ["tiberius/chrono"]
+native-tls = ["tiberius/native-tls"]
+tokio-tls = ["tiberius/tokio-tls"]
