@@ -1,4 +1,4 @@
-use bb8_tiberius::{Error, ConnectionManager};
+use bb8_tiberius::{Error, ConnectionManager, PoolExt};
 use futures_state_stream::StateStream;
 use futures::future::Future;
 
@@ -13,27 +13,21 @@ fn main() -> Result<(), Box<std::error::Error>> {
                 .max_size(2)
                 .build_unchecked(ConnectionManager(conn_str));
 
-            let rt = pool.clone().run(|pooled_conn| {
-                pooled_conn.run(|conn| {
-                    conn.simple_query("SELECT @@version")
-                        .map_err(Error::from)
-                        .map(|row| {
-                            let val: &str = row.get(0);
-                            String::from(val)
-                        })
-                        .collect()
-                        .map(|(items, state)| {
-                            println!("{:?}", &items);
-                            ((), state)
-                        })
-                })
+            let rt = pool.run_wrapped(|conn| {
+                conn.simple_query("SELECT @@version")
+                    .map_err(Error::from)
+                    .map(|row| {
+                        let val: &str = row.get(0);
+                        String::from(val)
+                    })
+                    .collect()
             });
 
-            rt
+            rt.map(|x| println!("{}", x.join(", "))).map_err(|_| ()) 
         })
     };
 
-    tokio::runtime::current_thread::block_on_all(fut).unwrap();
+    tokio::run(fut);
 
     Ok(())
 }

@@ -9,6 +9,8 @@ pub enum Error {
     EmptyConnection
 }
 
+impl std::error::Error for Error {}
+
 #[derive(Debug, Clone)]
 pub struct ConnectionManager(pub String);
 
@@ -36,11 +38,11 @@ impl bb8::ManageConnection for ConnectionManager {
                     .from_err()
                     .then(move |r| match r {
                         Ok(conn) => Ok(PooledConnection(Some(conn))),
-                        Err(e) => Err((e, PooledConnection::default())),
+                        Err(e) => Err((e, PooledConnection(None))),
                     });
                 Box::new(rt)
             },
-            None => Box::new(future::err((Error::EmptyConnection, PooledConnection::default())))
+            None => Box::new(future::err((Error::EmptyConnection, PooledConnection(None))))
         }
     }
     /// Synchronously determine if the connection is no longer usable, if possible.
@@ -73,4 +75,33 @@ impl PooledConnection {
                 Either::B(future::err((Error::EmptyConnection.into(), PooledConnection::default())))
         }
     }
+}
+
+pub trait PoolExt {
+    fn run_wrapped<'a, T, E, U, F>(
+        &self,
+        f: F,
+    ) -> Box<Future<Item = T, Error = bb8::RunError<E>> + Send + 'a>
+    where
+        F: FnOnce(SqlConnection) -> U + Send + 'a,
+        U: IntoFuture<Item = (T, SqlConnection), Error = E> + Send + 'a,
+        U::Future: Send + 'a,
+        E: From<Error> + Send + 'a,
+        T: Send + 'a;
+}
+
+impl PoolExt for bb8::Pool<ConnectionManager> {
+    fn run_wrapped<'a, T, E, U, F>(
+        &self,
+        f: F,
+    ) -> Box<Future<Item = T, Error = bb8::RunError<E>> + Send + 'a>
+    where
+        F: FnOnce(SqlConnection) -> U + Send + 'a,
+        U: IntoFuture<Item = (T, SqlConnection), Error = E> + Send + 'a,
+        U::Future: Send + 'a,
+        E: From<Error> + Send + 'a,
+        T: Send + 'a 
+        {
+            Box::new(self.run(|pooled_conn| pooled_conn.run(f)))
+        }
 }
