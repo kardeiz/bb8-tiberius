@@ -1,17 +1,14 @@
-use bb8_tiberius::{Error, ConnectionManager, PoolExt};
-use futures_state_stream::StateStream;
+use bb8_tiberius::{ConnectionManager, Error, PoolExt};
 use futures::future::Future;
+use futures_state_stream::StateStream;
 
 fn main() -> Result<(), Box<std::error::Error>> {
-
     let fut = {
         let conn_str = std::env::var("DB_CONN")?;
 
         futures::future::lazy(|| {
-
-            let pool = bb8::Pool::builder()
-                .max_size(2)
-                .build_unchecked(ConnectionManager(conn_str));
+            let pool =
+                bb8::Pool::builder().max_size(2).build_unchecked(ConnectionManager(conn_str));
 
             let rt = pool.run_wrapped(|conn| {
                 conn.simple_query("SELECT @@version")
@@ -23,7 +20,7 @@ fn main() -> Result<(), Box<std::error::Error>> {
                     .collect()
             });
 
-            rt.map(|x| println!("{}", x.join(", "))).map_err(|_| ()) 
+            rt.map(|x| println!("{}", x.join(", "))).map_err(|_| ())
         })
     };
 
@@ -31,4 +28,3 @@ fn main() -> Result<(), Box<std::error::Error>> {
 
     Ok(())
 }
-
