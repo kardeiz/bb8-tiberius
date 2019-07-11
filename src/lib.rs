@@ -1,12 +1,25 @@
 use futures::future::{self, Either, Future, IntoFuture};
 use futures_state_stream::StateStream;
 
-#[derive(Debug, derive_more::Display, derive_more::From)]
+#[derive(Debug)]
 pub enum Error {
-    #[display(fmt = "Tiberius: {:?}", _0)]
     Tiberius(tiberius::Error),
-    #[display(fmt = "Connection removed")]
     EmptyConnection,
+}
+
+impl std::fmt::Display for Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Error::Tiberius(ref e) => write!(f, "{:?}", e),
+            Error::EmptyConnection => write!(f, "Connection removed"),
+        }
+    }
+}
+
+impl From<tiberius::Error> for Error {
+    fn from(t: tiberius::Error) -> Self {
+        Error::Tiberius(t)
+    }
 }
 
 impl std::error::Error for Error {}
@@ -53,7 +66,6 @@ impl bb8::ManageConnection for ConnectionManager {
     }
 }
 
-#[derive(Default, derive_more::From)]
 pub struct PooledConnection(pub Option<SqlConnection>);
 
 impl PooledConnection {
@@ -73,11 +85,9 @@ impl PooledConnection {
                 f(conn)
                     .into_future()
                     .map(|(t, conn)| (t, PooledConnection(Some(conn))))
-                    .map_err(|e| (e.into(), PooledConnection::default())),
+                    .map_err(|e| (e.into(), PooledConnection(None))),
             ),
-            None => {
-                Either::B(future::err((Error::EmptyConnection.into(), PooledConnection::default())))
-            }
+            None => Either::B(future::err((Error::EmptyConnection.into(), PooledConnection(None)))),
         }
     }
 }

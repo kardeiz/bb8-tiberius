@@ -3,12 +3,15 @@ name = "bb8-tiberius"
 version = "0.1.0"
 authors = ["Jacob Brown <kardeiz@gmail.com>"]
 edition = "2018"
-
+readme = "README.md"
+license = "MIT"
+description = "bb8 connection manager for Tiberius"
+repository = "https://github.com/kardeiz/bb8-tiberius"
+keywords = ["mssql", "tiberius", "database", "pool"]
 [dependencies]
-futures = "0.1.28"
+futures = "0.1"
 tiberius = { version = "0.3", default-features = false }
-bb8 = "0.3.0"
-derive_more = "0.15.0"
+bb8 = "0.3"
 futures-state-stream = "0.1"
 
 [dev-dependencies]
