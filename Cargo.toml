@@ -8,6 +8,7 @@ license = "MIT"
 description = "bb8 connection manager for Tiberius"
 repository = "https://github.com/kardeiz/bb8-tiberius"
 keywords = ["mssql", "tiberius", "database", "pool"]
+
 [dependencies]
 futures = "0.1"
 tiberius = { version = "0.3", default-features = false }
