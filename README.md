@@ -5,6 +5,10 @@ Use [bb8](https://crates.io/crates/bb8) (pool manager for async connections) wit
 ## Usage
 
 ```rust
+use bb8_tiberius::{ConnectionManager, Error, PoolExt};
+use futures::future::Future;
+use futures_state_stream::StateStream;
+
 let fut = {
     let conn_str = std::env::var("DB_CONN")?;
 
