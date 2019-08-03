@@ -37,6 +37,7 @@ impl bb8::ManageConnection for ConnectionManager {
 
     /// Attempts to create a new connection.
     fn connect(&self) -> Box<Future<Item = Self::Connection, Error = Self::Error> + Send> {
+        println!("{:?}", "GETTING NEW CONN");
         Box::new(
             tiberius::SqlConnection::connect(&self.0).map(Some).map(PooledConnection).from_err(),
         )
