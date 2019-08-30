@@ -25,7 +25,10 @@ impl From<tiberius::Error> for Error {
 impl std::error::Error for Error {}
 
 #[derive(Debug, Clone)]
-pub struct ConnectionManager(pub String);
+pub enum ConnectionManager {
+    Url(String),
+    ParamsAndTarget(tiberius::ConnectParams, tiberius::ConnectTarget)
+}
 
 pub type SqlConnection = tiberius::SqlConnection<Box<tiberius::BoxableIo>>;
 
@@ -36,11 +39,14 @@ impl bb8::ManageConnection for ConnectionManager {
     type Error = Error;
 
     /// Attempts to create a new connection.
-    fn connect(&self) -> Box<Future<Item = Self::Connection, Error = Self::Error> + Send> {
-        println!("{:?}", "GETTING NEW CONN");
-        Box::new(
-            tiberius::SqlConnection::connect(&self.0).map(Some).map(PooledConnection).from_err(),
-        )
+    fn connect(&self) -> Box<Future<Item = Self::Connection, Error = Self::Error> + Send> {        
+        match self {
+            ConnectionManager::Url(ref s) => Box::new(
+                tiberius::SqlConnection::connect(s).map(Some).map(PooledConnection).from_err(),
+            ),
+            ConnectionManager::ParamsAndTarget(ref params, ref target) => Box::new(
+                tiberius::SqlConnection::connect_to(params.clone(), target.clone().connect()).map(Some).map(PooledConnection).from_err())
+        }        
     }
     /// Determines if the connection is still connected to the database.
     fn is_valid(

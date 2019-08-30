@@ -8,7 +8,7 @@ fn main() -> Result<(), Box<std::error::Error>> {
 
         futures::future::lazy(|| {
             let pool =
-                bb8::Pool::builder().max_size(2).build_unchecked(ConnectionManager(conn_str));
+                bb8::Pool::builder().max_size(2).build_unchecked(ConnectionManager::Url(conn_str));
 
             let rt = pool.run_wrapped(|conn| {
                 conn.simple_query("SELECT @@version")

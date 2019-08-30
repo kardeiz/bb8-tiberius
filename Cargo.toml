@@ -24,3 +24,6 @@ tls = ["tokio-tls", "native-tls", "tiberius/tls"]
 chrono = ["tiberius/chrono"]
 native-tls = ["tiberius/native-tls"]
 tokio-tls = ["tiberius/tokio-tls"]
+
+[patch.crates-io]
+tiberius = { git = "https://github.com/kardeiz/tiberius", rev = "0e7069d" }
