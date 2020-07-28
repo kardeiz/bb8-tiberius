@@ -1,6 +1,6 @@
 [package]
 name = "bb8-tiberius"
-version = "0.1.0"
+version = "0.4.0"
 authors = ["Jacob Brown <kardeiz@gmail.com>"]
 edition = "2018"
 readme = "README.md"
@@ -10,20 +10,19 @@ repository = "https://github.com/kardeiz/bb8-tiberius"
 keywords = ["mssql", "tiberius", "database", "pool"]
 
 [dependencies]
-futures = "0.1"
-tiberius = { version = "0.3", default-features = false }
-bb8 = "0.3"
-futures-state-stream = "0.1"
-
-[dev-dependencies]
-tokio = "0.1.22"
+futures = "0.3"
+tiberius = { version = "0.4", default-features = false }
+bb8 = "0.4"
+thiserror = "1.0.20"
+tokio = { version = "0.2", features = ["net", "io-util", "rt-threaded", "macros"], optional = true }
+tokio-util = { version = "0.3", features = ["compat"], optional = true }
+async-trait = "0.1.36"
+async-std = { version = "1.6", optional = true }
 
 [features]
-default = ["chrono", "tls", "tiberius/chrono", "tiberius/tls"]
-tls = ["tokio-tls", "native-tls", "tiberius/tls"]
+default = ["chrono", "tls", "tds73", "with-tokio"]
+tls = ["tiberius/tls"]
+with-tokio = ["tokio", "tokio-util"]
+with-async-std = ["async-std"]
+tds73 = ["tiberius/tds73"]
 chrono = ["tiberius/chrono"]
-native-tls = ["tiberius/native-tls"]
-tokio-tls = ["tiberius/tokio-tls"]
-
-[patch.crates-io]
-tiberius = { git = "https://github.com/kardeiz/tiberius", rev = "0e7069d" }

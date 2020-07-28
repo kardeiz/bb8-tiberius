@@ -1,129 +1,126 @@
-use futures::future::{self, Either, Future, IntoFuture};
-use futures_state_stream::StateStream;
 
-#[derive(Debug)]
+/// The error container
+#[derive(Debug, thiserror::Error)]
 pub enum Error {
-    Tiberius(tiberius::Error),
-    EmptyConnection,
+    #[error(transparent)]
+    Tiberius(#[from] tiberius::error::Error),
+    #[error(transparent)]
+    Io(#[from] std::io::Error),
 }
 
-impl std::fmt::Display for Error {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Error::Tiberius(ref e) => write!(f, "{:?}", e),
-            Error::EmptyConnection => write!(f, "Connection removed"),
+/// Implemented for `&str` (ADO-style string) and `tiberius::Config`
+pub trait IntoConfig {
+    fn into_config(self) -> tiberius::Result<tiberius::Config>;
+}
+
+impl<'a> IntoConfig for &'a str {
+    fn into_config(self) -> tiberius::Result<tiberius::Config> {
+        tiberius::Config::from_ado_string(self)
+    }
+}
+
+impl IntoConfig for tiberius::Config {
+    fn into_config(self) -> tiberius::Result<tiberius::Config> {
+        Ok(self)
+    }
+}
+
+/// Implements `bb8::ManageConnection`
+pub struct ConnectionManager {
+    config: tiberius::Config,
+    #[cfg(feature = "with-tokio")]
+    modify_tcp_stream: Box<dyn Fn(&tokio::net::TcpStream) -> tokio::io::Result<()> + Send + Sync + 'static>,
+    #[cfg(feature = "with-async-std")]
+    modify_tcp_stream: Box<dyn Fn(&async_std::net::TcpStream) -> async_std::io::Result<()> + Send + Sync + 'static>,
+}
+
+impl ConnectionManager {
+    /// Create a new `ConnectionManager`
+    pub fn new(config: tiberius::Config) -> Self {
+        Self { 
+            config, 
+            modify_tcp_stream: Box::new(|tcp_stream| tcp_stream.set_nodelay(true) )
         }
     }
-}
 
-impl From<tiberius::Error> for Error {
-    fn from(t: tiberius::Error) -> Self {
-        Error::Tiberius(t)
+    /// Build a `ConnectionManager` from e.g. an ADO string
+    pub fn build<I: IntoConfig>(config: I) -> Result<Self, Error> {
+        Ok(config.into_config().map(Self::new)?)
     }
 }
 
-impl std::error::Error for Error {}
+/// Runtime (`tokio` or `async-std` dependent parts)
+#[cfg(feature = "with-tokio")]
+pub mod rt {
 
-#[derive(Debug, Clone)]
-pub enum ConnectionManager {
-    Url(String),
-    ParamsAndTarget(tiberius::ConnectParams, tiberius::ConnectTarget)
+    /// The connection type
+    pub type Client = tiberius::Client<tokio_util::compat::Compat<tokio::net::TcpStream>>;
+
+    impl super::ConnectionManager {
+
+        /// Perform some configuration on the TCP stream when generating connections
+        pub fn with_modify_tcp_stream<F>(mut self, f: F) -> Self where F: Fn(&tokio::net::TcpStream) -> tokio::io::Result<()> + Send + Sync + 'static {
+            self.modify_tcp_stream = Box::new(f);
+            self
+        }
+
+        pub(crate) async fn connect_inner(&self) -> Result<Client, super::Error> {
+            use tokio::net::TcpStream;
+            use tokio_util::compat::Tokio02AsyncWriteCompatExt;
+
+            let tcp = TcpStream::connect(self.config.get_addr()).await?;
+
+            (self.modify_tcp_stream)(&tcp)?;
+
+            let client = tiberius::Client::connect(self.config.clone(), tcp.compat_write()).await?;
+
+            Ok(client)
+        }
+    }    
 }
 
-pub type SqlConnection = tiberius::SqlConnection<Box<tiberius::BoxableIo>>;
+#[cfg(feature = "with-async-std")]
+pub mod rt {
 
+    /// The connection type
+    pub type Client = tiberius::Client<async_std::net::TcpStream>;
+
+    impl super::ConnectionManager {
+
+        /// Perform some configuration on the TCP stream when generating connections
+        pub fn with_modify_tcp_stream<F>(mut self, f: F) -> Self where F: Fn(&async_std::net::TcpStream) -> async_std::io::Result<()> + Send + Sync + 'static {
+            self.modify_tcp_stream = Box::new(f);
+            self
+        }
+
+        pub(crate) async fn connect_inner(&self) -> Result<Client, super::Error> {
+
+            let tcp = async_std::net::TcpStream::connect(self.config.get_addr()).await?;
+
+            (self.modify_tcp_stream)(&tcp)?;
+
+            let client = tiberius::Client::connect(self.config.clone(), tcp).await?;
+
+            Ok(client)
+        }
+    }  
+}
+
+#[async_trait::async_trait]
 impl bb8::ManageConnection for ConnectionManager {
-    /// The connection type this manager deals with.
-    type Connection = PooledConnection;
-    /// The error type returned by `Connection`s.
+    type Connection = rt::Client;
     type Error = Error;
 
-    /// Attempts to create a new connection.
-    fn connect(&self) -> Box<Future<Item = Self::Connection, Error = Self::Error> + Send> {        
-        match self {
-            ConnectionManager::Url(ref s) => Box::new(
-                tiberius::SqlConnection::connect(s).map(Some).map(PooledConnection).from_err(),
-            ),
-            ConnectionManager::ParamsAndTarget(ref params, ref target) => Box::new(
-                tiberius::SqlConnection::connect_to(params.clone(), target.clone().connect()).map(Some).map(PooledConnection).from_err())
-        }        
+    async fn connect(&self) -> Result<Self::Connection, Self::Error> {
+        Ok(self.connect_inner().await?)
     }
-    /// Determines if the connection is still connected to the database.
-    fn is_valid(
-        &self,
-        conn: Self::Connection,
-    ) -> Box<Future<Item = Self::Connection, Error = (Self::Error, Self::Connection)> + Send> {
-        match conn.0 {
-            Some(conn) => {
-                let rt =
-                    conn.simple_query("SELECT 1").for_each(|_| Ok(())).from_err().then(move |r| {
-                        match r {
-                            Ok(conn) => Ok(PooledConnection(Some(conn))),
-                            Err(e) => Err((e, PooledConnection(None))),
-                        }
-                    });
-                Box::new(rt)
-            }
-            None => Box::new(future::err((Error::EmptyConnection, PooledConnection(None)))),
-        }
+
+    async fn is_valid(&self, mut conn: Self::Connection) -> Result<Self::Connection, Self::Error> {
+        conn.simple_query("SELECT 1").await?;
+        Ok(conn)
     }
-    /// Synchronously determine if the connection is no longer usable, if possible.
-    fn has_broken(&self, conn: &mut Self::Connection) -> bool {
-        conn.0.is_none()
-    }
-}
 
-pub struct PooledConnection(pub Option<SqlConnection>);
-
-impl PooledConnection {
-    pub fn run<'a, T, E, U, F>(
-        self,
-        f: F,
-    ) -> impl Future<Item = (T, Self), Error = (E, Self)> + Send + 'a
-    where
-        F: FnOnce(SqlConnection) -> U + Send + 'a,
-        U: IntoFuture<Item = (T, SqlConnection), Error = E> + Send + 'a,
-        U::Future: Send + 'a,
-        E: From<Error> + Send + 'a,
-        T: Send + 'a,
-    {
-        match self.0 {
-            Some(conn) => Either::A(
-                f(conn)
-                    .into_future()
-                    .map(|(t, conn)| (t, PooledConnection(Some(conn))))
-                    .map_err(|e| (e.into(), PooledConnection(None))),
-            ),
-            None => Either::B(future::err((Error::EmptyConnection.into(), PooledConnection(None)))),
-        }
-    }
-}
-
-pub trait PoolExt {
-    fn run_wrapped<'a, T, E, U, F>(
-        &self,
-        f: F,
-    ) -> Box<Future<Item = T, Error = bb8::RunError<E>> + Send + 'a>
-    where
-        F: FnOnce(SqlConnection) -> U + Send + 'a,
-        U: IntoFuture<Item = (T, SqlConnection), Error = E> + Send + 'a,
-        U::Future: Send + 'a,
-        E: From<Error> + Send + 'a,
-        T: Send + 'a;
-}
-
-impl PoolExt for bb8::Pool<ConnectionManager> {
-    fn run_wrapped<'a, T, E, U, F>(
-        &self,
-        f: F,
-    ) -> Box<Future<Item = T, Error = bb8::RunError<E>> + Send + 'a>
-    where
-        F: FnOnce(SqlConnection) -> U + Send + 'a,
-        U: IntoFuture<Item = (T, SqlConnection), Error = E> + Send + 'a,
-        U::Future: Send + 'a,
-        E: From<Error> + Send + 'a,
-        T: Send + 'a,
-    {
-        Box::new(self.run(|pooled_conn| pooled_conn.run(f)))
+    fn has_broken(&self, _conn: &mut Self::Connection) -> bool {
+        false
     }
 }

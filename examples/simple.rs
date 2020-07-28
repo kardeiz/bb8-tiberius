@@ -1,30 +1,26 @@
-use bb8_tiberius::{ConnectionManager, Error, PoolExt};
-use futures::future::Future;
-use futures_state_stream::StateStream;
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
-fn main() -> Result<(), Box<std::error::Error>> {
-    let fut = {
-        let conn_str = std::env::var("DB_CONN")?;
+    let conn_str = std::env::var("DB_CONN")?;
 
-        futures::future::lazy(|| {
-            let pool =
-                bb8::Pool::builder().max_size(2).build_unchecked(ConnectionManager::Url(conn_str));
+    let mgr = bb8_tiberius::ConnectionManager::build(conn_str.as_str())?;
 
-            let rt = pool.run_wrapped(|conn| {
-                conn.simple_query("SELECT @@version")
-                    .map_err(Error::from)
-                    .map(|row| {
-                        let val: &str = row.get(0);
-                        String::from(val)
-                    })
-                    .collect()
-            });
+    let pool = bb8::Pool::builder().max_size(2).build(mgr).await?;
 
-            rt.map(|x| println!("{}", x.join(", "))).map_err(|_| ())
+    let mut conn = pool.get().await?;
+
+    let res = conn.simple_query("SELECT @@version")
+        .await?
+        .into_first_result()
+        .await?
+        .into_iter()
+        .map(|row| {
+            let val: &str = row.get(0).unwrap();
+            String::from(val)
         })
-    };
+        .collect::<Vec<_>>();
 
-    tokio::run(fut);
+    println!("{:?}", &res);
 
     Ok(())
 }
