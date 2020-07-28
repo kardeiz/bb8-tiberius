@@ -1,4 +1,3 @@
-
 /// The error container
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -29,18 +28,18 @@ impl IntoConfig for tiberius::Config {
 pub struct ConnectionManager {
     config: tiberius::Config,
     #[cfg(feature = "with-tokio")]
-    modify_tcp_stream: Box<dyn Fn(&tokio::net::TcpStream) -> tokio::io::Result<()> + Send + Sync + 'static>,
+    modify_tcp_stream:
+        Box<dyn Fn(&tokio::net::TcpStream) -> tokio::io::Result<()> + Send + Sync + 'static>,
     #[cfg(feature = "with-async-std")]
-    modify_tcp_stream: Box<dyn Fn(&async_std::net::TcpStream) -> async_std::io::Result<()> + Send + Sync + 'static>,
+    modify_tcp_stream: Box<
+        dyn Fn(&async_std::net::TcpStream) -> async_std::io::Result<()> + Send + Sync + 'static,
+    >,
 }
 
 impl ConnectionManager {
     /// Create a new `ConnectionManager`
     pub fn new(config: tiberius::Config) -> Self {
-        Self { 
-            config, 
-            modify_tcp_stream: Box::new(|tcp_stream| tcp_stream.set_nodelay(true) )
-        }
+        Self { config, modify_tcp_stream: Box::new(|tcp_stream| tcp_stream.set_nodelay(true)) }
     }
 
     /// Build a `ConnectionManager` from e.g. an ADO string
@@ -57,9 +56,11 @@ pub mod rt {
     pub type Client = tiberius::Client<tokio_util::compat::Compat<tokio::net::TcpStream>>;
 
     impl super::ConnectionManager {
-
         /// Perform some configuration on the TCP stream when generating connections
-        pub fn with_modify_tcp_stream<F>(mut self, f: F) -> Self where F: Fn(&tokio::net::TcpStream) -> tokio::io::Result<()> + Send + Sync + 'static {
+        pub fn with_modify_tcp_stream<F>(mut self, f: F) -> Self
+        where
+            F: Fn(&tokio::net::TcpStream) -> tokio::io::Result<()> + Send + Sync + 'static,
+        {
             self.modify_tcp_stream = Box::new(f);
             self
         }
@@ -76,7 +77,7 @@ pub mod rt {
 
             Ok(client)
         }
-    }    
+    }
 }
 
 #[cfg(feature = "with-async-std")]
@@ -86,15 +87,16 @@ pub mod rt {
     pub type Client = tiberius::Client<async_std::net::TcpStream>;
 
     impl super::ConnectionManager {
-
         /// Perform some configuration on the TCP stream when generating connections
-        pub fn with_modify_tcp_stream<F>(mut self, f: F) -> Self where F: Fn(&async_std::net::TcpStream) -> async_std::io::Result<()> + Send + Sync + 'static {
+        pub fn with_modify_tcp_stream<F>(mut self, f: F) -> Self
+        where
+            F: Fn(&async_std::net::TcpStream) -> async_std::io::Result<()> + Send + Sync + 'static,
+        {
             self.modify_tcp_stream = Box::new(f);
             self
         }
 
         pub(crate) async fn connect_inner(&self) -> Result<Client, super::Error> {
-
             let tcp = async_std::net::TcpStream::connect(self.config.get_addr()).await?;
 
             (self.modify_tcp_stream)(&tcp)?;
@@ -103,7 +105,7 @@ pub mod rt {
 
             Ok(client)
         }
-    }  
+    }
 }
 
 #[async_trait::async_trait]

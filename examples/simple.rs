@@ -1,6 +1,5 @@
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-
     let conn_str = std::env::var("DB_CONN")?;
 
     let mgr = bb8_tiberius::ConnectionManager::build(conn_str.as_str())?;
@@ -9,7 +8,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let mut conn = pool.get().await?;
 
-    let res = conn.simple_query("SELECT @@version")
+    let res = conn
+        .simple_query("SELECT @@version")
         .await?
         .into_first_result()
         .await?
