@@ -5,30 +5,30 @@ Use [bb8](https://crates.io/crates/bb8) (pool manager for async connections) wit
 ## Usage
 
 ```rust
-use bb8_tiberius::{ConnectionManager, Error, PoolExt};
-use futures::future::Future;
-use futures_state_stream::StateStream;
-
-let fut = {
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let conn_str = std::env::var("DB_CONN")?;
 
-    futures::future::lazy(|| {
-        let pool =
-            bb8::Pool::builder().max_size(10).build_unchecked(ConnectionManager(conn_str));
+    let mgr = bb8_tiberius::ConnectionManager::build(conn_str.as_str())?;
 
-        let rt = pool.run_wrapped(|conn| {
-            conn.simple_query("SELECT @@version")
-                .map_err(Error::from)
-                .map(|row| {
-                    let val: &str = row.get(0);
-                    String::from(val)
-                })
-                .collect()
-        });
+    let pool = bb8::Pool::builder().max_size(2).build(mgr).await?;
 
-        rt.map(|x| println!("{}", x.join(", "))).map_err(|_| ())
-    })
-};
+    let mut conn = pool.get().await?;
 
-tokio::run(fut);
+    let res = conn
+        .simple_query("SELECT @@version")
+        .await?
+        .into_first_result()
+        .await?
+        .into_iter()
+        .map(|row| {
+            let val: &str = row.get(0).unwrap();
+            String::from(val)
+        })
+        .collect::<Vec<_>>();
+
+    println!("{:?}", &res);
+
+    Ok(())
+}
 ```
