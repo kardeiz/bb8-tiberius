@@ -1,3 +1,4 @@
+
 /// The error container
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -67,7 +68,7 @@ pub mod rt {
 
         pub(crate) async fn connect_inner(&self) -> Result<Client, super::Error> {
             use tokio::net::TcpStream;
-            use tokio_util::compat::Tokio02AsyncWriteCompatExt;
+            use tokio_util::compat::TokioAsyncWriteCompatExt;//Tokio02AsyncWriteCompatExt;
 
             let tcp = TcpStream::connect(self.config.get_addr()).await?;
 
@@ -108,6 +109,7 @@ pub mod rt {
     }
 }
 
+
 #[async_trait::async_trait]
 impl bb8::ManageConnection for ConnectionManager {
     type Connection = rt::Client;
@@ -117,9 +119,9 @@ impl bb8::ManageConnection for ConnectionManager {
         Ok(self.connect_inner().await?)
     }
 
-    async fn is_valid(&self, mut conn: Self::Connection) -> Result<Self::Connection, Self::Error> {
+    async fn is_valid<'a, 'b, 'c>(&'a self, conn: &'b mut bb8::PooledConnection<'c,Self>) -> Result<(), Self::Error> {
         conn.simple_query("SELECT 1").await?;
-        Ok(conn)
+        Ok(())
     }
 
     fn has_broken(&self, _conn: &mut Self::Connection) -> bool {
