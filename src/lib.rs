@@ -126,7 +126,6 @@ pub mod rt {
 
             (self.modify_tcp_stream)(&tcp)?;
 
-            // let client = tiberius::Client::connect(self.config.clone(), tcp).await?;
             let client = match Client::connect(self.config.clone(), tcp).await {
                 // Connection successful.
                 Ok(client) => client,
