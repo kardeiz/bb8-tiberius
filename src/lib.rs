@@ -74,7 +74,28 @@ pub mod rt {
 
             (self.modify_tcp_stream)(&tcp)?;
 
-            let client = tiberius::Client::connect(self.config.clone(), tcp.compat_write()).await?;
+            let client = match Client::connect(self.config.clone(), tcp.compat_write()).await {
+                // Connection successful.
+                Ok(client) => client,
+
+                // The server wants us to redirect to a different address
+                Err(tiberius::error::Error::Routing { host, port }) => {
+                    let mut config = self.config.clone();
+
+                    config.host(&host);
+                    config.port(port);
+
+                    let tcp = TcpStream::connect(config.get_addr()).await?;
+
+                    (self.modify_tcp_stream)(&tcp)?;
+
+                    // we should not have more than one redirect, so we'll short-circuit here.
+                    tiberius::Client::connect(config, tcp.compat_write()).await?
+                }
+
+                // Other error happened
+                Err(e) => Err(e)?,
+            };
 
             Ok(client)
         }
@@ -102,7 +123,28 @@ pub mod rt {
 
             (self.modify_tcp_stream)(&tcp)?;
 
-            let client = tiberius::Client::connect(self.config.clone(), tcp).await?;
+            let client = match Client::connect(self.config.clone(), tcp).await {
+                // Connection successful.
+                Ok(client) => client,
+
+                // The server wants us to redirect to a different address
+                Err(tiberius::error::Error::Routing { host, port }) => {
+                    let mut config = self.config.clone();
+
+                    config.host(&host);
+                    config.port(port);
+
+                    let tcp = async_std::net::TcpStream::connect(config.get_addr()).await?;
+
+                    (self.modify_tcp_stream)(&tcp)?;
+
+                    // we should not have more than one redirect, so we'll short-circuit here.
+                    tiberius::Client::connect(config, tcp).await?
+                }
+
+                // Other error happened
+                Err(e) => Err(e)?,
+            };
 
             Ok(client)
         }
