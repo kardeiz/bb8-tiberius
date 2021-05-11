@@ -71,7 +71,6 @@ pub mod rt {
             use tokio_util::compat::TokioAsyncWriteCompatExt;//Tokio02AsyncWriteCompatExt;
 
             let tcp = TcpStream::connect(self.config.get_addr()).await?;
-            tcp.set_nodelay(true)?;
 
             (self.modify_tcp_stream)(&tcp)?;
 
@@ -87,7 +86,6 @@ pub mod rt {
                     config.port(port);
 
                     let tcp = TcpStream::connect(config.get_addr()).await?;
-                    tcp.set_nodelay(true)?;
 
                     (self.modify_tcp_stream)(&tcp)?;
 
@@ -122,7 +120,6 @@ pub mod rt {
 
         pub(crate) async fn connect_inner(&self) -> Result<Client, super::Error> {
             let tcp = async_std::net::TcpStream::connect(self.config.get_addr()).await?;
-            tcp.set_nodelay(true)?;
 
             (self.modify_tcp_stream)(&tcp)?;
 
@@ -138,7 +135,6 @@ pub mod rt {
                     config.port(port);
 
                     let tcp = async_std::net::TcpStream::connect(config.get_addr()).await?;
-                    tcp.set_nodelay(true)?;
 
                     (self.modify_tcp_stream)(&tcp)?;
 
