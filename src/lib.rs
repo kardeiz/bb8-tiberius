@@ -66,11 +66,22 @@ pub mod rt {
             self
         }
 
+        #[cfg(feature = "sql-browser")]
+        async fn connect_tcp(&self) -> tiberius::Result<tokio::net::TcpStream> {
+            use tiberius::SqlBrowser;
+            tokio::net::TcpStream::connect_named(&self.config).await
+        }
+
+        #[cfg(not(feature = "sql-browser"))]
+        async fn connect_tcp(&self) -> std::io::Result<tokio::net::TcpStream> {
+            tokio::net::TcpStream::connect(self.config.get_addr()).await
+        }
+
         pub(crate) async fn connect_inner(&self) -> Result<Client, super::Error> {
             use tokio::net::TcpStream;
             use tokio_util::compat::TokioAsyncWriteCompatExt;//Tokio02AsyncWriteCompatExt;
 
-            let tcp = TcpStream::connect(self.config.get_addr()).await?;
+            let tcp = self.connect_tcp().await?;
 
             (self.modify_tcp_stream)(&tcp)?;
 
@@ -118,8 +129,19 @@ pub mod rt {
             self
         }
 
+        #[cfg(feature = "sql-browser")]
+        async fn connect_tcp(&self) -> tiberius::Result<async_std::net::TcpStream> {
+            use tiberius::SqlBrowser;
+            async_std::net::TcpStream::connect_named(&self.config).await
+        }
+
+        #[cfg(not(feature = "sql-browser"))]
+        async fn connect_tcp(&self) -> std::io::Result<async_std::net::TcpStream> {
+            async_std::net::TcpStream::connect(self.config.get_addr()).await
+        }
+
         pub(crate) async fn connect_inner(&self) -> Result<Client, super::Error> {
-            let tcp = async_std::net::TcpStream::connect(self.config.get_addr()).await?;
+            let tcp = self.connect_tcp().await?;
 
             (self.modify_tcp_stream)(&tcp)?;
 
