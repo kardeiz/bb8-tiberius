@@ -69,8 +69,9 @@ pub mod rt {
         pub(crate) async fn connect_inner(&self) -> Result<Client, super::Error> {
             use tokio::net::TcpStream;
             use tokio_util::compat::TokioAsyncWriteCompatExt;//Tokio02AsyncWriteCompatExt;
+            use tiberius::SqlBrowser;
 
-            let tcp = TcpStream::connect(self.config.get_addr()).await?;
+            let tcp = TcpStream::connect_named(&self.config).await?;
 
             (self.modify_tcp_stream)(&tcp)?;
 
@@ -119,7 +120,9 @@ pub mod rt {
         }
 
         pub(crate) async fn connect_inner(&self) -> Result<Client, super::Error> {
-            let tcp = async_std::net::TcpStream::connect(self.config.get_addr()).await?;
+            use tiberius::SqlBrowser;
+            
+            let tcp = async_std::net::TcpStream::connect_named(&self.config).await?;
 
             (self.modify_tcp_stream)(&tcp)?;
 
