@@ -35,17 +35,31 @@ pub struct ConnectionManager {
     modify_tcp_stream: Box<
         dyn Fn(&async_std::net::TcpStream) -> async_std::io::Result<()> + Send + Sync + 'static,
     >,
+    #[cfg(feature = "sql-browser")]
+    use_named_connection: bool,
 }
 
 impl ConnectionManager {
     /// Create a new `ConnectionManager`
     pub fn new(config: tiberius::Config) -> Self {
-        Self { config, modify_tcp_stream: Box::new(|tcp_stream| tcp_stream.set_nodelay(true)) }
+        Self { 
+            config, 
+            modify_tcp_stream: Box::new(|tcp_stream| tcp_stream.set_nodelay(true)), 
+            #[cfg(feature = "sql-browser")] 
+            use_named_connection: false 
+        }
     }
 
     /// Build a `ConnectionManager` from e.g. an ADO string
     pub fn build<I: IntoConfig>(config: I) -> Result<Self, Error> {
         Ok(config.into_config().map(Self::new)?)
+    }
+
+    #[cfg(feature = "sql-browser")]
+    /// Use `tiberius::SqlBrowser::connect_named` to establish the TCP stream
+    pub fn using_named_connection(mut self) -> Self {
+        self.use_named_connection = true;
+        self
     }
 }
 
@@ -67,9 +81,14 @@ pub mod rt {
         }
 
         #[cfg(feature = "sql-browser")]
-        async fn connect_tcp(&self) -> tiberius::Result<tokio::net::TcpStream> {
+        async fn connect_tcp(&self) -> Result<tokio::net::TcpStream, super::Error> {
             use tiberius::SqlBrowser;
-            tokio::net::TcpStream::connect_named(&self.config).await
+            
+            if self.use_named_connection {
+                Ok(tokio::net::TcpStream::connect_named(&self.config).await?)
+            } else {
+                Ok(tokio::net::TcpStream::connect(self.config.get_addr()).await?)
+            }
         }
 
         #[cfg(not(feature = "sql-browser"))]
@@ -79,7 +98,7 @@ pub mod rt {
 
         pub(crate) async fn connect_inner(&self) -> Result<Client, super::Error> {
             use tokio::net::TcpStream;
-            use tokio_util::compat::TokioAsyncWriteCompatExt;//Tokio02AsyncWriteCompatExt;
+            use tokio_util::compat::TokioAsyncWriteCompatExt; //Tokio02AsyncWriteCompatExt;
 
             let tcp = self.connect_tcp().await?;
 
