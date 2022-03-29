@@ -1,4 +1,3 @@
-
 /// The error container
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -42,11 +41,11 @@ pub struct ConnectionManager {
 impl ConnectionManager {
     /// Create a new `ConnectionManager`
     pub fn new(config: tiberius::Config) -> Self {
-        Self { 
-            config, 
-            modify_tcp_stream: Box::new(|tcp_stream| tcp_stream.set_nodelay(true)), 
-            #[cfg(feature = "sql-browser")] 
-            use_named_connection: false 
+        Self {
+            config,
+            modify_tcp_stream: Box::new(|tcp_stream| tcp_stream.set_nodelay(true)),
+            #[cfg(feature = "sql-browser")]
+            use_named_connection: false
         }
     }
 
@@ -83,7 +82,7 @@ pub mod rt {
         #[cfg(feature = "sql-browser")]
         async fn connect_tcp(&self) -> Result<tokio::net::TcpStream, super::Error> {
             use tiberius::SqlBrowser;
-            
+
             if self.use_named_connection {
                 Ok(tokio::net::TcpStream::connect_named(&self.config).await?)
             } else {
@@ -202,7 +201,7 @@ impl bb8::ManageConnection for ConnectionManager {
         Ok(self.connect_inner().await?)
     }
 
-    async fn is_valid<'a, 'b, 'c>(&'a self, conn: &'b mut bb8::PooledConnection<'c,Self>) -> Result<(), Self::Error> {
+    async fn is_valid(&self, conn: &mut Self::Connection) -> Result<(), Self::Error> {
         conn.simple_query("SELECT 1").await?;
         Ok(())
     }
