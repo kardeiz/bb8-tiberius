@@ -12,7 +12,7 @@ keywords = ["mssql", "tiberius", "database", "pool"]
 [dependencies]
 futures = "0.3"
 tiberius = { version = "0.7", default-features = false }
-bb8 = "0.7.0"
+bb8 = "0.8"
 thiserror = "1.0.23"
 tokio = { version = "1.1.0", features = ["net", "io-util", "rt-multi-thread", "macros"], optional = true }
 tokio-util = { version = "0.6.2", features = ["compat"], optional = true }
