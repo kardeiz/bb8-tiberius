@@ -11,7 +11,7 @@ keywords = ["mssql", "tiberius", "database", "pool"]
 
 [dependencies]
 futures = "0.3"
-tiberius = { version = "0.8", default-features = false }
+tiberius = { version = "0.9", default-features = false }
 bb8 = "0.8"
 thiserror = "1.0.23"
 tokio = { version = "1.1.0", features = ["net", "io-util", "rt-multi-thread", "macros"], optional = true }
@@ -21,7 +21,7 @@ async-std = { version = "1.9.0", optional = true }
 
 [features]
 default = ["chrono",  "tds73", "with-tokio", "sql-browser", "tiberius/winauth"]
-tls = ["tiberius/vendored-openssl"]
+tls = ["tiberius/rustls"]
 with-tokio = ["tokio", "tokio-util"]
 with-async-std = ["async-std"]
 tds73 = ["tiberius/tds73"]
