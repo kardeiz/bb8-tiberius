@@ -10,7 +10,6 @@ repository = "https://github.com/kardeiz/bb8-tiberius"
 keywords = ["mssql", "tiberius", "database", "pool"]
 
 [dependencies]
-futures = "0.3"
 tiberius = { version = "0.12", default-features = false }
 bb8 = "0.8"
 thiserror = "1.0.23"
