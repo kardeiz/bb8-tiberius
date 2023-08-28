@@ -32,3 +32,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 ```
+
+If using a [named instance](https://learn.microsoft.com/en-us/sql/database-engine/configure-windows/logging-in-to-sql-server?view=sql-server-ver16#format-for-specifying-the-name-of-sql-server) to connect, use the `using_named_connection` function:
+
+```rust
+let mgr = bb8_tiberius::ConnectionManager::build(conn_str.as_str())?.using_named_connection();
+```
