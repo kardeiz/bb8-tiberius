@@ -1,8 +1,8 @@
 [package]
 name = "bb8-tiberius"
-version = "0.16.0"
+version = "0.17.0"
 authors = ["Jacob Brown <kardeiz@gmail.com>"]
-edition = "2018"
+edition = "2024"
 readme = "README.md"
 license = "MIT"
 description = "bb8 connection manager for Tiberius"
@@ -10,12 +10,12 @@ repository = "https://github.com/kardeiz/bb8-tiberius"
 keywords = ["mssql", "tiberius", "database", "pool"]
 
 [dependencies]
-tiberius = { version = "0.12", default-features = false }
+tiberius = { version = "0.13", default-features = false }
 bb8 = "0.9"
-thiserror = "1.0.23"
-tokio = { version = "1.1.0", features = ["net"], optional = true }
+thiserror = "2.0"
+tokio = { version = "1.54", features = ["net"], optional = true }
 tokio-util = { version = "0.7", features = ["compat"], optional = true }
-async-std = { version = "1.9.0", optional = true }
+async-std = { version = "1.13", optional = true }
 
 [features]
 default = ["chrono",  "tds73", "with-tokio", "sql-browser", "tiberius/winauth"]
@@ -27,4 +27,4 @@ chrono = ["tiberius/chrono"]
 sql-browser = ["tiberius/sql-browser-tokio"]
 
 [dev-dependencies]
-tokio = { version = "1.1.0", features = ["macros", "rt-multi-thread"] }
+tokio = { version = "1.51", features = ["macros", "rt-multi-thread"] }
